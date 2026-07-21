@@ -3,10 +3,10 @@
 // Login Page for Student/Researcher and Supervisor authentication
 
 session_start();
-if (isset($_SESSION['user_id'])) {
-    header('Location: dashboard.php');
-    exit;
-}
+// Pass current session info to JS so the page can show a switch-user banner
+$already_logged_in = isset($_SESSION['user_id']);
+$current_fullname  = $already_logged_in ? htmlspecialchars($_SESSION['fullname']) : '';
+$current_role      = $already_logged_in ? htmlspecialchars($_SESSION['role'])     : '';
 
 ?>
 <!DOCTYPE html>
@@ -120,6 +120,17 @@ if (isset($_SESSION['user_id'])) {
                 `<div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> Account created successfully! Please sign in below.</div>`;
         }
 
+        // Show switch-user banner if someone is already logged in
+        const alreadyLoggedIn = <?php echo $already_logged_in ? 'true' : 'false'; ?>;
+        const currentFullname = <?php echo json_encode($current_fullname); ?>;
+        const currentRole     = <?php echo json_encode($current_role); ?>;
+        if (alreadyLoggedIn) {
+            document.getElementById('alert-container').innerHTML =
+                `<div class="alert alert-info" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <span><i class="fa-solid fa-circle-info"></i> Currently logged in as <strong>${currentFullname}</strong> (${currentRole}). Sign in below to switch accounts, or <a href="dashboard.php" style="font-weight:600;">go to dashboard</a>.</span>
+                </div>`;
+        }
+
         function togglePasswordVisibility() {
             const pwdInput = document.getElementById('password');
             const toggleIcon = document.getElementById('password-toggle-btn');
@@ -136,7 +147,7 @@ if (isset($_SESSION['user_id'])) {
         async function handleLogin(e) {
             e.preventDefault();
             const submitBtn = document.getElementById('submit-btn');
-            const usernameInput = document.getElementById('username').value;
+            const usernameInput = document.getElementById('username').value.trim();
             const passwordInput = document.getElementById('password').value;
             const alertContainer = document.getElementById('alert-container');
             
@@ -145,6 +156,9 @@ if (isset($_SESSION['user_id'])) {
             alertContainer.innerHTML = '';
 
             try {
+                // Always logout the current session first so switching users works correctly
+                await fetch('api.php?action=logout', { method: 'POST' }).catch(() => {});
+
                 const response = await fetch('api.php?action=login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -157,7 +171,7 @@ if (isset($_SESSION['user_id'])) {
                     alertContainer.innerHTML = `<div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> ${result.message} Redirecting...</div>`;
                     setTimeout(() => {
                         window.location.href = 'dashboard.php';
-                    }, 1000);
+                    }, 800);
                 } else {
                     alertContainer.innerHTML = `<div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> ${result.message}</div>`;
                     submitBtn.disabled = false;
