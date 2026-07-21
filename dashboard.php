@@ -1241,6 +1241,8 @@ $is_admin      = ($role === 'admin');
             if (panelId === 'budget')    loadBudget();
             if (panelId === 'analytics') loadAnalytics();
             if (panelId === 'approval')  loadApproval();
+            if (panelId === 'milestones') loadMilestones();
+            if (panelId === 'chat')      loadChat();
         }
     }
 
@@ -1565,6 +1567,317 @@ $is_admin      = ($role === 'admin');
             const result = await res.json();
             if (result.status === 'success') { alert(result.message); window.location.reload(); }
         } catch(e) { console.error(e); }
+    }
+
+    // ================================================================
+    // MILESTONES & GANTT FUNCTIONS
+    // ================================================================
+    let studentMilestones = [];
+
+    async function loadMilestones() {
+        const tbody = document.getElementById('milestones-table-body');
+        const chartContainer = document.getElementById('gantt-chart-container');
+        if (!tbody || !chartContainer) return;
+
+        try {
+            const res = await fetch('api.php?action=get_milestones');
+            const result = await res.json();
+
+            if (result.status !== 'success') {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--text-muted);">${escapeHtml(result.message||'Failed to load milestones')}</td></tr>`;
+                chartContainer.innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;">No milestone data available.</p>`;
+                return;
+            }
+
+            studentMilestones = result.data || [];
+            renderMilestonesTable(studentMilestones, tbody, true);
+            renderGanttChart(studentMilestones, chartContainer);
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--accent-danger);">Connection error loading milestones.</td></tr>`;
+        }
+    }
+
+    function renderMilestonesTable(items, tbodyEl, isEditable = true) {
+        if (!items || items.length === 0) {
+            tbodyEl.innerHTML = `<tr><td colspan="${isEditable ? 4 : 3}" class="text-center" style="color:var(--text-muted);">No milestones defined yet.</td></tr>`;
+            return;
+        }
+        tbodyEl.innerHTML = items.map(m => {
+            let badgeClass = 'badge-warning';
+            if (m.status === 'Completed') badgeClass = 'badge-success';
+            else if (m.status === 'In Progress') badgeClass = 'badge-info';
+            
+            let actionsTd = '';
+            if (isEditable) {
+                const escapedTitle = escapeHtml(m.title).replace(/'/g, "\\'");
+                actionsTd = `
+                    <td class="text-center">
+                        <button class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.8rem;" onclick="openMilestoneModal(${m.id}, '${escapedTitle}', '${m.due_date}', '${m.status}')" title="Edit Milestone"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:0.8rem;" onclick="deleteMilestoneItem(${m.id})" title="Delete Milestone"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+            }
+            
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(m.title)}</strong></td>
+                    <td><i class="fa-solid fa-calendar-day" style="color:var(--text-muted);margin-right:6px;"></i> ${escapeHtml(m.due_date)}</td>
+                    <td><span class="badge ${badgeClass}">${escapeHtml(m.status)}</span></td>
+                    ${actionsTd}
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderGanttChart(items, containerEl) {
+        if (!items || items.length === 0) {
+            containerEl.innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px 0;">No milestones available to display Gantt timeline.</p>`;
+            return;
+        }
+        containerEl.innerHTML = items.map(m => {
+            let statusClass = 'status-pending';
+            let percentText = '25%';
+            if (m.status === 'Completed') {
+                statusClass = 'status-completed';
+                percentText = '100%';
+            } else if (m.status === 'In Progress') {
+                statusClass = 'status-inprogress';
+                percentText = '60%';
+            }
+
+            return `
+                <div class="gantt-row">
+                    <div class="gantt-label" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</div>
+                    <div class="gantt-bar-wrap">
+                        <div class="gantt-bar-fill ${statusClass}">
+                            <span>${percentText}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function openMilestoneModal(id = '', title = '', date = '', status = 'Pending') {
+        document.getElementById('milestone-id').value    = id;
+        document.getElementById('milestone-title').value = title;
+        document.getElementById('milestone-date').value  = date;
+        
+        const statusGroup = document.getElementById('milestone-status-group');
+        if (id) {
+            statusGroup.style.display = 'block';
+            document.getElementById('milestone-status').value = status;
+            document.getElementById('milestone-modal-title').innerText = 'Edit Timeline Milestone';
+        } else {
+            statusGroup.style.display = 'none';
+            document.getElementById('milestone-status').value = 'Pending';
+            document.getElementById('milestone-modal-title').innerText = 'Add Timeline Milestone';
+        }
+        document.getElementById('milestone-modal').classList.add('active');
+    }
+
+    function closeMilestoneModal() {
+        document.getElementById('milestone-modal').classList.remove('active');
+    }
+
+    async function saveMilestoneItem(e) {
+        e.preventDefault();
+        const id       = document.getElementById('milestone-id').value;
+        const title    = document.getElementById('milestone-title').value.trim();
+        const due_date = document.getElementById('milestone-date').value;
+        const status   = document.getElementById('milestone-status').value;
+        
+        const action  = id ? 'update_milestone' : 'add_milestone';
+        const payload = id ? { id: parseInt(id), title, due_date, status } : { title, due_date };
+        
+        const btn = document.getElementById('milestone-modal-save-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        
+        try {
+            const res    = await fetch(`api.php?action=${action}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                closeMilestoneModal();
+                loadMilestones();
+            } else {
+                alert(result.message);
+            }
+        } catch(err) {
+            console.error(err);
+            alert('Error saving milestone.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Save Milestone';
+        }
+    }
+
+    async function deleteMilestoneItem(id) {
+        if (!confirm('Are you sure you want to delete this timeline milestone?')) return;
+        try {
+            const res = await fetch('api.php?action=delete_milestone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: parseInt(id) })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                loadMilestones();
+            } else {
+                alert(result.message);
+            }
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
+    async function loadModalMilestones(studentId) {
+        const tbody = document.getElementById('modal-milestones-table-body');
+        const chartContainer = document.getElementById('modal-gantt-chart-container');
+        if (!tbody || !chartContainer) return;
+
+        try {
+            const res = await fetch(`api.php?action=get_milestones&student_id=${studentId}`);
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                const milestones = result.data || [];
+                renderMilestonesTable(milestones, tbody, false);
+                renderGanttChart(milestones, chartContainer);
+            } else {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center" style="color:var(--text-muted);">${escapeHtml(result.message||'No milestones found')}</td></tr>`;
+                chartContainer.innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;">No milestone data available.</p>`;
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    // ================================================================
+    // DIRECT CHAT FUNCTIONS
+    // ================================================================
+    let chatPartnerId = null;
+
+    async function loadChat() {
+        const container = document.getElementById('chat-messages-container');
+        if (!container) return;
+
+        try {
+            const contactsRes = await fetch('api.php?action=get_chat_contacts');
+            const contacts    = await contactsRes.json();
+
+            if (contacts.status !== 'success' || !contacts.data || contacts.data.length === 0) {
+                container.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding-top:20px;">No supervisor or contact assigned yet.</div>`;
+                return;
+            }
+
+            chatPartnerId = contacts.data[0].id;
+            const res = await fetch(`api.php?action=get_messages&recipient_id=${chatPartnerId}`);
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                renderChatMessages(result.data, container);
+            } else {
+                container.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding-top:20px;">No messages yet. Send a message below!</div>`;
+            }
+        } catch(e) {
+            console.error(e);
+            container.innerHTML = `<div style="color:var(--accent-danger);text-align:center;padding-top:20px;">Error loading messages.</div>`;
+        }
+    }
+
+    function renderChatMessages(messages, container) {
+        if (!messages || messages.length === 0) {
+            container.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding-top:20px;">No conversation history. Send a message to start!</div>`;
+            return;
+        }
+        const currentUid = parseInt(<?php echo json_encode($_SESSION['user_id'] ?? 0); ?>);
+        container.innerHTML = messages.map(m => {
+            const isMe = (parseInt(m.sender_id) === currentUid);
+            const align = isMe ? 'flex-end' : 'flex-start';
+            const bg = isMe ? 'linear-gradient(135deg, var(--accent-primary), #4f46e5)' : 'var(--bg-secondary)';
+            const color = isMe ? '#ffffff' : 'var(--text-primary)';
+            return `
+                <div style="display:flex;flex-direction:column;align-items:${align};max-width:75%;align-self:${align};">
+                    <div style="background:${bg};color:${color};padding:10px 14px;border-radius:12px;font-size:0.9rem;word-break:break-word;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                        ${escapeHtml(m.message)}
+                    </div>
+                    <span style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;padding:0 4px;">${escapeHtml(m.created_at || '')}</span>
+                </div>
+            `;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function sendChatMessage(e) {
+        e.preventDefault();
+        const input = document.getElementById('chat-message-input');
+        const msg = input.value.trim();
+        if (!msg || !chatPartnerId) return;
+
+        try {
+            const res = await fetch('api.php?action=send_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient_id: chatPartnerId, message: msg })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                input.value = '';
+                loadChat();
+            } else {
+                alert(result.message);
+            }
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
+    async function loadModalChat(studentId) {
+        const container = document.getElementById('modal-chat-messages-container');
+        if (!container) return;
+
+        try {
+            const res = await fetch(`api.php?action=get_messages&recipient_id=${studentId}`);
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                renderChatMessages(result.data, container);
+            } else {
+                container.innerHTML = `<div style="color:var(--text-muted);text-align:center;padding-top:20px;">No messages yet.</div>`;
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    async function sendModalChatMessage(e) {
+        e.preventDefault();
+        const input = document.getElementById('modal-chat-message-input');
+        const msg = input.value.trim();
+        if (!msg || !currentStudentId) return;
+
+        try {
+            const res = await fetch('api.php?action=send_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient_id: currentStudentId, message: msg })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                input.value = '';
+                loadModalChat(currentStudentId);
+            } else {
+                alert(result.message);
+            }
+        } catch(err) {
+            console.error(err);
+        }
     }
 
     // ================================================================
