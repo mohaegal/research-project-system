@@ -1,6 +1,6 @@
 <?php
 // index.php
-// Public Landing Page for the Youth Employment Research System
+// Public Landing Page for ResearchPortal: A Web-Based System for Managing Student Research Projects and Data Collection
 
 require_once __DIR__ . '/database.php';
 
@@ -20,7 +20,7 @@ $app_status = $pdo->query("SELECT status FROM supervisor_approval WHERE id = 1")
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Youth Employment Research System</title>
+    <title>ResearchPortal: A Web-Based System for Managing Student Research Projects and Data Collection</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -79,11 +79,19 @@ $app_status = $pdo->query("SELECT status FROM supervisor_approval WHERE id = 1")
     <!-- Hero Section -->
     <header class="hero container">
         <span class="badge badge-success mb-4" style="font-size: 0.85rem; padding: 6px 14px;">
-            <i class="fa-solid fa-book-open"></i> Academic Research Project
+            <i class="fa-solid fa-laptop-code"></i> Computer Systems Project
         </span>
-        <h1><?php echo htmlspecialchars($metadata['title'] ?? 'THE ROLE OF SMALL BUSINESSES IN YOUTH EMPLOYMENT'); ?></h1>
-        <p>Investigating the capacity of retail shops, salons, restaurants, and repair services in creating job opportunities for the youth in local communities.</p>
-        
+        <h1>ResearchPortal</h1>
+        <p style="font-size: 1.25rem; font-weight: 500; color: var(--accent-primary); margin-bottom: 12px;">
+            A Web-Based System for Managing Student Research Projects and Data Collection
+        </p>
+        <p style="font-size: 0.95rem; max-width: 780px; margin: 0 auto 16px auto;">
+            Streamlining academic research workflows with multi-role authentication, structured chapter drafting, budget tracking, milestone planning, data collection modules, and supervisor review approvals.
+        </p>
+        <div style="display: inline-block; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-glass); padding: 8px 16px; border-radius: 8px;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);"><i class="fa-solid fa-flask"></i> <strong>Case Study Dataset:</strong> <?php echo htmlspecialchars($metadata['title'] ?? 'THE ROLE OF SMALL BUSINESSES IN YOUTH EMPLOYMENT'); ?></span>
+        </div>
+
         <!-- Metadata Info Cards -->
         <div class="glass-card grid-3 mt-8" style="text-align: left; padding: 20px; gap: 16px;">
             <div>
@@ -163,7 +171,7 @@ $app_status = $pdo->query("SELECT status FROM supervisor_approval WHERE id = 1")
 
     <!-- Portals / Public questionnaires links -->
     <main class="container mb-8">
-        <h2 class="mb-4" style="text-align: center; font-size: 1.75rem;">Research Data Collection Portals</h2>
+        <h2 class="mb-4" style="text-align: center; font-size: 1.75rem;">System Data Collection Modules</h2>
         <div class="grid-2">
             <!-- Employee Survey Portal -->
             <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
@@ -202,7 +210,7 @@ $app_status = $pdo->query("SELECT status FROM supervisor_approval WHERE id = 1")
         <div class="glass-card mt-8" style="background: rgba(var(--accent-primary-rgb), 0.02); border-color: rgba(99, 102, 241, 0.15); max-width: 600px; margin-left: auto; margin-right: auto;">
             <div style="text-align: center; padding: 10px;">
                 <i class="fa-solid fa-file-pdf" style="font-size: 1.75rem; color: var(--accent-success); margin-bottom: 12px;"></i>
-                <h4 class="mb-2">Authorization Letter</h4>
+                <h4 class="mb-2">Authorization Letter Module</h4>
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">Generate and print the academic letterhead authorization letter for field survey research.</p>
                 <a href="generate_letter.php" target="_blank" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 16px;">
                     Generate Letter <i class="fa-solid fa-print"></i>
@@ -214,7 +222,7 @@ $app_status = $pdo->query("SELECT status FROM supervisor_approval WHERE id = 1")
     <!-- Footer -->
     <footer style="border-top: 1px solid var(--border-glass); padding: 24px 0; text-align: center; font-size: 0.9rem; color: var(--text-secondary);">
         <div class="container">
-            <p>&copy; 2026 Youth Employment Research System. All rights reserved.</p>
+            <p>&copy; 2026 ResearchPortal. All rights reserved.</p>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Powered by PHP, SQLite, Vanilla CSS & JS</p>
         </div>
     </footer>
